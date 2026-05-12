@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hole.io Platon Edition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --glass: rgba(255, 255, 255, 0.1);
+            --blur: blur(15px);
+            --neon-blue: #00f2ff;
+            --neon-pink: #ff00e5;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #050505;
+            color: white;
+            user-select: none;
+        }
+
+        canvas { display: block; }
+
+        /* UI Containers */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: var(--glass);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            pointer-events: auto;
+        }
+
+        /* Hero Selection Screen */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #050505 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 800px;
+            padding: 40px;
+        }
+
+        .hero-card {
+            width: 150px;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.3s, border-color 0.3s;
+            text-align: center;
+        }
+
+        .hero-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 20px var(--neon-blue);
+        }
+
+        .hero-img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #222;
+            margin-bottom: 15px;
+            border: 3px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        /* HUD */
+        #hud {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .stat-box {
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .leaderboard {
+            width: 200px;
+            padding: 15px;
+        }
+
+        .lb-entry {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .lb-me { color: var(--neon-blue); font-weight: bold; }
+
+        /* Joystick */
+        #joystick-container {
+            position: absolute;
+            bottom: 50px;
+            left: 50px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+            display: none;
+            pointer-events: auto;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #joystick-handle {
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 15px white;
+        }
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 600px) {
+            .hero-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .hero-card { width: 120px; height: 160px; }
+            #joystick-container { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <div class="glass-panel" style="padding: 20px; text-align: center;">
+            <h1 style="margin-bottom: 30px; letter-spacing: 5px; color: var(--neon-blue);">HOLE.IO PLATON</h1>
+            <div class="hero-grid" id="hero-selector">
+                <div class="hero-card glass-panel" onclick="startGame('Tito', '#00f2ff')">
+                    <div class="hero-img" style="background-image: url('Tito.png'); background-size: cover;">Tito</div>
+                    <span>TITO</span>
+                </div>
+                <div class="hero-card glass-panel" onclick="startGame('Smartik', '#ff00e5')">
+                    <div class="hero-img" style="background-image: url('Smartik.png'); background-size: cover;">Smartik</div>
+                    <span>SMARTIK</span>
+                </div>
+                <div class="hero-card glass-panel" onclick="startGame('Junior', '#a200ff')">
+                    <div class="hero-img" style="background-image: url('Junior.png'); background-size: cover;">Junior</div>
+                    <span>JUNIOR</span>
+                </div>
+                <div class="hero-card glass-panel" onclick="startGame('Fil', '#00ff40')">
+                    <div class="hero-img" style="background-image: url('Fil.png'); background-size: cover;">Fil</div>
+                    <span>FIL</span>
+                </div>
+                <div class="hero-card glass-panel" onclick="startGame('Milka', '#ffea00')">
+                    <div class="hero-img" style="background-image: url('Milka.png'); background-size: cover;">Milka</div>
+                    <span>MILKA</span>
+                </div>
+                <div class="hero-card glass-panel" onclick="startGame('Bark', '#ff4d00')">
+                    <div class="hero-img" style="background-image: url('Bark.png'); background-size: cover;">Bark</div>
+                    <span>BARK</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay hidden" id="game-ui">
+        <div id="hud">
+            <div class="glass-panel stat-box">
+                <span id="time-left">02:00</span> | <span id="score">0</span> pts
+            </div>
+            <div class="glass-panel leaderboard" id="leaderboard">
+                </div>
+        </div>
+        
+        <div id="joystick-container">
+            <div id="joystick-handle"></div>
+        </div>
+    </div>
+
+    <script>
+        /** GAME ENGINE CORE **/
+        let scene, camera, renderer, clock;
+        let playerHole, cityObjects = [], bots = [];
+        let score = 0, timeLeft = 120;
+        let isGameRunning = false;
+        let selectedHero = null;
+        
+        // Input tracking
+        const keys = { w: false, a: false, s: false, d: false };
+        const joystick = { active: false, x: 0, y: 0 };
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050505);
+            scene.fog = new THREE.FogExp2(0x050505, 0.015);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+            sun.position.set(50, 100, 50);
+            sun.castShadow = true;
+            scene.add(sun);
+
+            createCity();
+            clock = new THREE.Clock();
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+            window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+            initJoystick();
+        }
+
+        function createCity() {
+            // Ground
+            const groundGeo = new THREE.PlaneGeometry(1000, 1000);
+            const groundMat = new THREE.MeshPhongMaterial({ color: 0x111111 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Grid for "Modern City" look
+            const grid = new THREE.GridHelper(1000, 100, 0x444444, 0x222222);
+            scene.add(grid);
+
+            // Procedural Spawning
+            const geometries = [
+                new THREE.BoxGeometry(1, 1, 1),      // Small prop
+                new THREE.BoxGeometry(2, 4, 2),      // Tree/Kiosk
+                new THREE.BoxGeometry(4, 8, 4),      // Small building
+                new THREE.BoxGeometry(8, 20, 8),     // Large building
+                new THREE.CylinderGeometry(0.5, 0.5, 2) // Fire hydrant/light
+            ];
+
+            for (let i = 0; i < 400; i++) {
+                const type = Math.floor(Math.random() * geometries.length);
+                const mesh = new THREE.Mesh(
+                    geometries[type],
+                    new THREE.MeshPhongMaterial({ 
+                        color: new THREE.Color().setHSL(Math.random(), 0.5, 0.5),
+                        shininess: 100
+                    })
+                );
+
+                const radius = 20 + Math.random() * 400;
+                const angle = Math.random() * Math.PI * 2;
+                mesh.position.set(Math.cos(angle) * radius, geometries[type].parameters.height / 2 || 0.5, Math.sin(angle) * radius);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                
+                // Store metadata for collision
+                mesh.userData = {
+                    id: i,
+                    size: geometries[type].parameters.width || 1,
+                    height: geometries[type].parameters.height || 1,
+                    eaten: false
+                };
+
+                scene.add(mesh);
+                cityObjects.push(mesh);
+            }
+        }
+
+        function createHole(name, color, isPlayer = false) {
+            const group = new THREE.Group();
+            
+            // Visual Hole
+            const holeGeo = new THREE.RingGeometry(0.1, 2, 32);
+            const holeMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+            const holeMesh = new THREE.Mesh(holeGeo, holeMat);
+            holeMesh.rotation.x = -Math.PI / 2;
+            holeMesh.position.y = 0.05;
+            group.add(holeMesh);
+
+            // Neon Glow
+            const glowGeo = new THREE.RingGeometry(2, 2.3, 32);
+            const glowMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.6 });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            glow.rotation.x = -Math.PI / 2;
+            glow.position.y = 0.06;
+            group.add(glow);
+
+            // Name Label (Sprite)
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 256; canvas.height = 64;
+            ctx.fillStyle = color;
+            ctx.font = 'Bold 40px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(name.toUpperCase(), 128, 45);
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.scale.set(4, 1, 1);
+            sprite.position.y = 5;
+            group.add(sprite);
+
+            group.userData = {
+                name: name,
+                color: color,
+                radius: 2,
+                score: 0,
+                velocity: new THREE.Vector3()
+            };
+
+            scene.add(group);
+            return group;
+        }
+
+        function startGame(heroName, heroColor) {
+            selectedHero = { name: heroName, color: heroColor };
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-ui').classList.remove('hidden');
+            
+            playerHole = createHole(heroName, heroColor, true);
+            
+            // Create AI Bots
+            const botNames = ['Bark', 'Milka', 'Fil', 'Smartik', 'Junior', 'Tito', 'Персік', 'Спайк', 'Лилу', 'Альонка', 'Ліза'];
+            for(let i=0; i<8; i++) {
+                if(botNames[i] === heroName) continue;
+                const bot = createHole(botNames[i], '#ff3300');
+                bot.position.set(Math.random()*100 - 50, 0, Math.random()*100 - 50);
+                bots.push(bot);
+            }
+
+            isGameRunning = true;
+            startTimer();
+            animate();
+        }
+
+        function startTimer() {
+            const timerInterval = setInterval(() => {
+                if(!isGameRunning) return clearInterval(timerInterval);
+                timeLeft--;
+                const m = Math.floor(timeLeft / 60);
+                const s = timeLeft % 60;
+                document.getElementById('time-left').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                
+                if(timeLeft <= 0) {
+                    isGameRunning = false;
+                    alert(`Час вийшов! Твій рахунок: ${score}`);
+                    location.reload();
+                }
+            }, 1000);
+        }
+
+        function handleMovement(delta) {
+            const speed = 20;
+            const moveDir = new THREE.Vector3();
+
+            if (keys.w) moveDir.z -= 1;
+            if (keys.s) moveDir.z += 1;
+            if (keys.a) moveDir.x -= 1;
+            if (keys.d) moveDir.x += 1;
+
+            if (joystick.active) {
+                moveDir.x = joystick.x;
+                moveDir.z = joystick.y;
+            }
+
+            if (moveDir.length() > 0) {
+                moveDir.normalize();
+                playerHole.position.add(moveDir.multiplyScalar(speed * delta));
+            }
+
+            // Camera follow
+            const camOffset = new THREE.Vector3(0, 30 + playerHole.userData.radius * 2, 20 + playerHole.userData.radius);
+            camera.position.lerp(playerHole.position.clone().add(camOffset), 0.1);
+            camera.lookAt(playerHole.position);
+        }
+
+        function updateHoles(delta) {
+            const allHoles = [playerHole, ...bots];
+
+            allHoles.forEach(hole => {
+                const hData = hole.userData;
+                
+                // AI Logic
+                if(hole !== playerHole) {
+                    // Simple wander towards nearest food
+                    const target = cityObjects.find(o => !o.userData.eaten && o.userData.size < hData.radius);
+                    if(target) {
+                        const dir = target.position.clone().sub(hole.position).normalize();
+                        hole.position.add(dir.multiplyScalar(12 * delta));
+                    }
+                }
+
+                // Check collisions with objects
+                cityObjects.forEach(obj => {
+                    if(obj.userData.eaten) return;
+
+                    const dist = hole.position.distanceTo(obj.position);
+                    if(dist < hData.radius && obj.userData.size < hData.radius * 0.8) {
+                        eatObject(hole, obj);
+                    }
+                });
+
+                // Check collisions with other holes
+                allHoles.forEach(otherHole => {
+                    if(hole === otherHole) return;
+                    const dist = hole.position.distanceTo(otherHole.position);
+                    if(dist < hData.radius && hData.radius > otherHole.userData.radius * 1.2) {
+                        // Eat other hole logic (reset it or remove)
+                        otherHole.position.set(Math.random()*400 - 200, 0, Math.random()*400 - 200);
+                        hData.score += Math.floor(otherHole.userData.score / 2) + 50;
+                        growHole(hole, 0.5);
+                    }
+                });
+            });
+
+            updateLeaderboard(allHoles);
+        }
+
+        function eatObject(hole, obj) {
+            obj.userData.eaten = true;
+            
+            // Animation: shrink and sink
+            const duration = 500;
+            const startPos = obj.position.clone();
+            const startTime = performance.now();
+
+            function animateEat() {
+                const now = performance.now();
+                const progress = (now - startTime) / duration;
+                if(progress < 1) {
+                    obj.scale.set(1-progress, 1-progress, 1-progress);
+                    obj.position.y = (obj.userData.height/2) - progress * 5;
+                    requestAnimationFrame(animateEat);
+                } else {
+                    obj.visible = false;
+                    // Respawn elsewhere
+                    setTimeout(() => {
+                        obj.position.set(Math.random()*800-400, obj.userData.height/2, Math.random()*800-400);
+                        obj.scale.set(1,1,1);
+                        obj.visible = true;
+                        obj.userData.eaten = false;
+                    }, 5000);
+                }
+            }
+            animateEat();
+
+            hole.userData.score += Math.ceil(obj.userData.size * 10);
+            if(hole === playerHole) {
+                score = hole.userData.score;
+                document.getElementById('score').innerText = score;
+            }
+            growHole(hole, obj.userData.size * 0.05);
+        }
+
+        function growHole(hole, amount) {
+            hole.userData.radius += amount;
+            const s = hole.userData.radius / 2;
+            hole.children[0].scale.set(s, s, s); // Visual hole
+            hole.children[1].scale.set(s, s, s); // Glow
+        }
+
+        function updateLeaderboard(holes) {
+            const sorted = [...holes].sort((a, b) => b.userData.score - a.userData.score);
+            const lbContainer = document.getElementById('leaderboard');
+            lbContainer.innerHTML = '';
+            sorted.slice(0, 5).forEach((h, i) => {
+                const entry = document.createElement('div');
+                entry.className = `lb-entry ${h === playerHole ? 'lb-me' : ''}`;
+                entry.innerHTML = `<span>${i+1}. ${h.userData.name}</span><span>${h.userData.score}</span>`;
+                lbContainer.appendChild(entry);
+            });
+        }
+
+        function animate() {
+            if(!isGameRunning) return;
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            handleMovement(delta);
+            updateHoles(delta);
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        /** JOYSTICK LOGIC **/
+        function initJoystick() {
+            const container = document.getElementById('joystick-container');
+            const handle = document.getElementById('joystick-handle');
+            
+            const handleMove = (e) => {
+                if(!joystick.active) return;
+                const touch = e.touches ? e.touches[0] : e;
+                const rect = container.getBoundingClientRect();
+                const centerX = rect.left + rect.width/2;
+                const centerY = rect.top + rect.height/2;
+                
+                let dx = touch.clientX - centerX;
+                let dy = touch.clientY - centerY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const maxDist = rect.width / 2;
+
+                if (dist > maxDist) {
+                    dx *= maxDist / dist;
+                    dy *= maxDist / dist;
+                }
+
+                handle.style.transform = `translate(${dx}px, ${dy}px)`;
+                joystick.x = dx / maxDist;
+                joystick.y = dy / maxDist;
+            };
+
+            container.addEventListener('touchstart', (e) => { 
+                joystick.active = true; 
+                handleMove(e);
+            });
+            window.addEventListener('touchmove', handleMove);
+            window.addEventListener('touchend', () => {
+                joystick.active = false;
+                handle.style.transform = `translate(0, 0)`;
+                joystick.x = 0; joystick.y = 0;
+            });
+
+            // Mouse support for joystick
+            container.addEventListener('mousedown', () => joystick.active = true);
+            window.addEventListener('mousemove', handleMove);
+            window.addEventListener('mouseup', () => {
+                joystick.active = false;
+                handle.style.transform = `translate(0, 0)`;
+            });
+        }
+
+        // Start initialization
+        window.onload = init;
+    </script>
+</body>
+</html>
